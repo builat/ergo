@@ -37,7 +37,7 @@ libraryDependencies ++= Seq(
   "org.asynchttpclient" % "async-http-client" % "2.1.0-alpha22" % "test",
   "com.spotify" % "docker-client" % "8.11.0" % "test" classifier "shaded",
   "com.fasterxml.jackson.dataformat" % "jackson-dataformat-properties" % "2.9.2" % "test"
-)
+) ++ doobieDeps
 
 coverageExcludedPackages := ".*ErgoApp.*;.*routes.*;.*ErgoPersistentModifier"
 
@@ -149,3 +149,13 @@ inConfig(Bench)(Defaults.testSettings ++  Seq(
 ))
 
 compile in Bench := (compile in Bench).dependsOn(compile in Test).value
+
+lazy val doobieVersion = "0.5.2"
+
+lazy val doobieDeps = Seq(
+  "org.tpolecat" %% "doobie-core"     % doobieVersion,
+  "org.tpolecat" %% "doobie-postgres" % doobieVersion,
+  "org.tpolecat" %% "doobie-specs2"   % doobieVersion,
+  "org.tpolecat" %% "doobie-hikari"   % doobieVersion
+)
+
