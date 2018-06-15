@@ -20,9 +20,7 @@ object StatsWriter {
     "supply",
     "market_cap",
     "hashrate",
-    "market_price_usd",
-    "market_price_btc",
-    "version",
+    "version"
   )
 
   val fieldsString = fields.mkString(", ")

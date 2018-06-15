@@ -7,7 +7,7 @@ import scorex.crypto.encode.Base16
 object OutputsWriter {
 
   val table = "outputs"
-  val fields = Seq("id", "tx_id", "value", "spent", "script", "hash")
+  val fields = Seq("id", "tx_id", "value", "script", "hash")
   val fieldsString = fields.mkString("(", ", ", ")")
 
   def dataString(h: Header, tx: ErgoTransaction): String = {
@@ -18,7 +18,7 @@ object OutputsWriter {
       val id = Base16.encode(ergoBox.id)
       val script = Base16.encode(bx.proposition.bytes)
       val hash = script
-      s"('$id', '$txId', ${bx.value}, FALSE, '$script', '$hash')"
+      s"('$id', '$txId', ${bx.value}, '$script', '$hash')"
     }
     os.mkString(", ")
   }

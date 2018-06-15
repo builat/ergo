@@ -1,5 +1,6 @@
 package org.ergoplatform.explorer
 
+import org.ergoplatform.mining.emission.CoinsEmission
 import org.ergoplatform.modifiers.history.{ADProofs, BlockTransactions, Header}
 import scorex.crypto.encode.Base16
 
@@ -23,7 +24,10 @@ object HeaderWriter {
     "ad_proofs",
     "tx_count",
     "miner_name",
-    "miner_address"
+    "miner_address",
+    "miner_reward",
+    "fee",
+    "txs_size"
   )
 
   val fieldsString = fields.mkString("(", ", ", ")")
@@ -44,7 +48,23 @@ object HeaderWriter {
 
   }
 
-  def dataString(h: Header, adProofs: Option[ADProofs], bt: BlockTransactions): String = {
+  def minerRewardAndFee(bt: BlockTransactions, height: Int, ce: CoinsEmission): (Long, Long) = {
+    val bite = "968400020191a3c6a70300059784000" +
+      "201968400030193c2a7c2b2a505000000000000000093958fa30500" +
+      "000000000027600500000001bf08eb00990500000001bf08eb009c05" +
+      "0000000011e1a3009a0500000000000000019d99a3050000000000002" +
+      "76005000000000000087099c1a7c1b2a505000000000000000093c6b2a" +
+      "5050000000000000000030005a390c1a7050000000011e1a300"
+
+    val reward = ce.emissionAtHeight(height.toLong)
+    val tx = bt.transactions.find(t => t.outputCandidates.headOption.map(v => Base16.encode(v.propositionBytes)).contains(bite))
+    val fee = tx.fold(0L) { t =>
+      t.outputCandidates.drop(1).headOption.map { v => v.value - reward }.getOrElse(0L)
+    }
+    (reward, fee)
+  }
+
+  def dataString(h: Header, adProofs: Option[ADProofs], bt: BlockTransactions, ce: CoinsEmission): String = {
     val id = Base16.encode(h.id)
     val pId = Base16.encode(h.parentId)
     val apr = Base16.encode(h.ADProofsRoot)
@@ -56,16 +76,18 @@ object HeaderWriter {
     val txCount = bt.transactions.length
     val extHash = Base16.encode(h.extensionHash)
     val miner = minerAddress(bt)
+    val (minerReward, fee) = minerRewardAndFee(bt, h.height, ce)
+    val txsSize = bt.transactions.map(_.bytes.length).sum
 
     s"('$id', '$pId', ${h.version}, ${h.height}, '$apr', '$sr', '$tr', " +
-      s"${h.timestamp}, ${h.nBits}, '$extHash', $size, '$es','$adp', $txCount, '$miner', '$miner')"
+      s"${h.timestamp}, ${h.nBits}, '$extHash', $size, '$es','$adp', $txCount, '$miner', '$miner', $minerReward, $fee, $txsSize)"
   }
 
-  def dataStrings(list: List[(Header, Option[ADProofs], BlockTransactions)]): String = list
-    .map{ case (h, p, bt) => dataString(h, p, bt) }
+  def dataStrings(list: List[(Header, Option[ADProofs], BlockTransactions)], ce: CoinsEmission): String = list
+    .map{ case (h, p, bt) => dataString(h, p, bt, ce) }
     .mkString(", ")
 
-  def dataStringsWithoutAdProofs(list: List[(Header, BlockTransactions)]): String = list
-    .map{ case (h, bt) => dataString(h, None, bt) }
+  def dataStringsWithoutAdProofs(list: List[(Header, BlockTransactions)], ce: CoinsEmission): String = list
+    .map{ case (h, bt) => dataString(h, None, bt, ce) }
     .mkString(", ")
 }

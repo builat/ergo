@@ -2,6 +2,7 @@ package org.ergoplatform.explorer
 
 import akka.actor.{ActorRef, ActorSystem, PoisonPill}
 import org.ergoplatform.ErgoApp
+import org.ergoplatform.mining.emission.CoinsEmission
 import org.ergoplatform.settings.ErgoSettings
 import scorex.core.utils.ScorexLogging
 
@@ -18,6 +19,8 @@ class ExplorerSyncApp(args: Seq[String]) extends ErgoApp(args) {
   val dbPass = sys.env.get("DB_PASS")
   val dbPassFile = sys.env.get("DB_PASS_FILE")
 
+  val coinsEmission = new CoinsEmission(ergoSettings.chainSettings.monetary)
+
   def pass: String = (dbPass orElse readfile(dbPassFile)).getOrElse("pass")
 
   def readfile(filename: Option[String]): Option[String] = filename.flatMap { f =>
@@ -29,7 +32,7 @@ class ExplorerSyncApp(args: Seq[String]) extends ErgoApp(args) {
   logger.info(s"db user : $dbUser")
   logger.info(s"db pass : $pass")
 
-  val listener = ListenerRef(jdbcUrl, dbUser, pass)
+  val listener = ListenerRef(jdbcUrl, dbUser, pass, coinsEmission)
 
   override val actorsToStop =
     Seq(

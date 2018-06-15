@@ -9,6 +9,7 @@ import cats.effect.IO
 import doobie.free.connection.ConnectionIO
 import doobie.util.fragment.Fragment
 import doobie.util.transactor.Transactor
+import org.ergoplatform.mining.emission.CoinsEmission
 import org.ergoplatform.modifiers.ErgoFullBlock
 import org.ergoplatform.modifiers.history.{ADProofs, BlockTransactions, Header}
 
@@ -24,10 +25,10 @@ object DBService {
   }
 
 
-  def insertHeader(h: Header, adProofs: Option[ADProofs], bt: BlockTransactions): ConnectionIO[Int] = {
+  def insertHeader(h: Header, adProofs: Option[ADProofs], bt: BlockTransactions, ce: CoinsEmission): ConnectionIO[Int] = {
     import HeaderWriter._
 
-    insert(table, fieldsString, dataString(h, adProofs, bt))
+    insert(table, fieldsString, dataString(h, adProofs, bt, ce))
   }
 
   def insertInterlinks(h: Header): ConnectionIO[Int] = {
@@ -55,8 +56,8 @@ object DBService {
     insert(table, fieldsString, dataStrings(h, bt))
   }
 
-  def proceedBlock(mod: ErgoFullBlock, xa: Transactor[IO]): IO[Int] = (for {
-    hInt <- insertHeader(mod.header, mod.aDProofs, mod.blockTransactions)
+  def proceedBlock(mod: ErgoFullBlock, ce: CoinsEmission, xa: Transactor[IO]): IO[Int] = (for {
+    hInt <- insertHeader(mod.header, mod.aDProofs, mod.blockTransactions, ce)
     iInt <- insertInterlinks(mod.header)
     btInt <- insertBlockTransactions(mod.header, mod.blockTransactions)
     osInt <- insertOutputs(mod.header, mod.blockTransactions)
