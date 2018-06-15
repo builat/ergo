@@ -3,6 +3,7 @@ package org.ergoplatform.api
 import cats.syntax.either._
 import io.circe._
 import io.circe.syntax._
+import org.ergoplatform.nodeView.history.ErgoHistory.Difficulty
 import org.ergoplatform.settings.Algos
 import scorex.core.ModifierId
 import scorex.core.validation.ValidationResult
@@ -23,14 +24,20 @@ trait ApiCodecs {
     maybeResult.fold[Either[DecodingFailure, T]](Left(DecodingFailure("No value found", cursor.history)))(Right.apply)
   }
 
-  def fromThrows[T](throwsResult: T)(implicit cursor: ACursor): Either[DecodingFailure, T] = {
-    Either.catchNonFatal(throwsResult).leftMap(e => DecodingFailure(e.toString, cursor.history))
+  def fromThrows[T](throwsBlock: => T)(implicit cursor: ACursor): Either[DecodingFailure, T] = {
+    Either.catchNonFatal(throwsBlock).leftMap(e => DecodingFailure(e.toString, cursor.history))
   }
 
   def fromValidation[T](value: T)(validationResult: ValidationResult)
                        (implicit cursor: ACursor): Either[DecodingFailure, T] = {
     fromTry(validationResult.toTry.map(_ => value))
   }
+
+  implicit val bigIntEncoder: Encoder[BigInt] = { bigInt =>
+    JsonNumber.fromDecimalStringUnsafe(bigInt.toString).asJson
+  }
+
+  implicit val difficultyEncoder: Encoder[Difficulty] = bigIntEncoder
 
   implicit val bytesEncoder: Encoder[Array[Byte]] =  Algos.encode(_).asJson
 
