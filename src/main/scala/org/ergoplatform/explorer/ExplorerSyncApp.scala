@@ -14,7 +14,7 @@ class ExplorerSyncApp(args: Seq[String]) extends ErgoApp(args) {
 
   override lazy val ergoSettings: ErgoSettings = ErgoSettings.read(args.headOption)
 
-  val jdbcUrl = sys.env.get("DB_URL").getOrElse("jdbc:postgresql://postgres:5432/explorer")
+  val jdbcUrl = sys.env.get("DB_URL").getOrElse("jdbc:postgresql://localhost:5432/explorer")
   val dbUser = sys.env.get("DB_USER").getOrElse("ergo")
   val dbPass = sys.env.get("DB_PASS")
   val dbPassFile = sys.env.get("DB_PASS_FILE")

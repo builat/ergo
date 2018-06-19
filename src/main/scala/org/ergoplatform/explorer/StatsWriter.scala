@@ -17,10 +17,10 @@ object StatsWriter {
     "block_fee",
     "total_mining_time",
     "block_mining_time",
-    "supply",
-    "market_cap",
-    "hashrate",
-    "version"
+    "version",
+    "height",
+    "total_coins_issued",
+    "miner_revenue"
   )
 
   val fieldsString = fields.mkString(", ")
