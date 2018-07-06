@@ -29,10 +29,10 @@ class ErgoNodeViewSynchronizer(networkControllerRef: ActorRef,
     ErgoSyncInfo, ErgoSyncInfoMessageSpec.type, ErgoPersistentModifier, ErgoHistory,
     ErgoMemPool](networkControllerRef, viewHolderRef, syncInfoSpec, networkSettings, timeProvider) {
 
-  override protected val deliveryTracker = new ErgoDeliveryTracker(context, deliveryTimeout, maxDeliveryChecks, self,
-    timeProvider)
+  override protected val deliveryTracker = new ErgoDeliveryTracker(context.system, deliveryTimeout, maxDeliveryChecks,
+    self, timeProvider)
 
-  private val downloadListSize = networkSettings.networkChunkSize
+  private val downloadListSize = networkSettings.maxInvObjects
 
   override def preStart(): Unit = {
     val toDownloadCheckInterval = networkSettings.syncInterval
@@ -80,7 +80,7 @@ class ErgoNodeViewSynchronizer(networkControllerRef: ActorRef,
     case CheckModifiersToDownload =>
       deliveryTracker.removeOutdatedExpectingFromRandom()
       historyReaderOpt.foreach { h =>
-        val currentQueue = deliveryTracker.expectingFromRandomQueue
+        val currentQueue = deliveryTracker.expectingAndDelivered
         val newIds = h.nextModifiersToDownload(downloadListSize - currentQueue.size, currentQueue)
         val oldIds = deliveryTracker.idsExpectingFromRandomToRetry()
         (newIds ++ oldIds).groupBy(_._1).foreach(ids => requestDownload(ids._1, ids._2.map(_._2)))
@@ -93,7 +93,7 @@ class ErgoNodeViewSynchronizer(networkControllerRef: ActorRef,
   }
 
   def onChangedVault: Receive = {
-    case _: ChangedVault =>
+    case ChangedVault(_) =>
   }
 
   override protected def viewHolderEvents: Receive =
