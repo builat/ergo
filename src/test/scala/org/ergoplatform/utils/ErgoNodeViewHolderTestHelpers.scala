@@ -5,24 +5,29 @@ import java.io.File
 import akka.actor.{ActorRef, ActorSystem}
 import akka.testkit.TestProbe
 import io.iohk.iodb.ByteArrayWrapper
+import org.ergoplatform.ErgoSanity.{HT, PM, UTXO_ST}
 import org.ergoplatform.mining.DefaultFakePowScheme
 import org.ergoplatform.modifiers.history.Header
 import org.ergoplatform.modifiers.{ErgoFullBlock, ErgoPersistentModifier}
-import org.ergoplatform.nodeView.ErgoNodeViewRef
+import org.ergoplatform.nodeView.{ErgoNodeViewRef, WrappedUtxoState}
 import org.ergoplatform.nodeView.history.ErgoHistory
 import org.ergoplatform.nodeView.mempool.ErgoMemPool
+import org.ergoplatform.nodeView.state.StateType.Utxo
 import org.ergoplatform.nodeView.state.{DigestState, ErgoState, StateType, UtxoState}
 import org.ergoplatform.nodeView.wallet.ErgoWallet
 import org.ergoplatform.settings.{Algos, ErgoSettings}
+import org.scalacheck.Gen
 import org.scalatest.BeforeAndAfterAll
-import scorex.core.ModifierId
+import scorex.core.{ModifierId, VersionTag}
 import scorex.core.NodeViewHolder.ReceivableMessages.GetDataFromCurrentView
+import scorex.crypto.hash.Blake2b256
+import scorex.testkit.generators.{ModifierProducerTemplateItem, SynInvalid, Valid}
 
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration.FiniteDuration
 import scala.reflect.ClassTag
 
-trait ErgoNodeViewHolderTestHelpers extends ErgoPropertyTest with BeforeAndAfterAll with NoShrink {
+trait ErgoNodeViewHolderTestHelpers extends ErgoPropertyTest with BeforeAndAfterAll with NoShrink with HistorySpecification {
   implicit val system: ActorSystem = ActorSystem("WithIsoFix")
   implicit val executionContext: ExecutionContext = system.dispatchers.lookup("scorex.executionContext")
 
@@ -140,5 +145,53 @@ trait ErgoNodeViewHolderTestHelpers extends ErgoPropertyTest with BeforeAndAfter
       system.stop(nodeViewRef)
       system.stop(testProbe.testActor)
     }
+  }
+
+  val historyGen: Gen[HT] = generateHistory(verifyTransactions = true, StateType.Utxo, PoPoWBootstrap = false, -1)
+
+  val stateGen: Gen[WrappedUtxoState] = boxesHolderGen.map(WrappedUtxoState(_, createTempDir, emission, None))
+
+  def semanticallyValidModifier(state: UTXO_ST): PM = validFullBlock(None, state.asInstanceOf[WrappedUtxoState])
+
+  def nodeViewHolder(implicit system: ActorSystem): (ActorRef, TestProbe, PM, UTXO_ST, H) = {
+    @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
+    val h = historyGen.sample.get
+    @SuppressWarnings(Array("org.wartremover.warts.OptionPartial"))
+    val s = stateGen.sample.get
+    val ref = actorRef(NodeViewHolderConfig(Utxo, verifyTransactions = true, popowBootstrap = false))
+    val m = totallyValidModifier(h, s)
+    val eventListener = TestProbe()
+    (ref, eventListener, m, s, h)
+  }
+
+  def customModifiers(history: H, state: UTXO_ST, template: Seq[ModifierProducerTemplateItem]): Seq[PM] = {
+    template.zip(totallyValidModifiers(history, state, template.length))
+      .map { case (templateItem, mod) =>
+        templateItem match {
+          case Valid => mod
+          case SynInvalid => makeSyntacticallyInvalid(mod)
+        }
+      }
+  }
+
+  def totallyValidModifier(history: H, state: UTXO_ST): PM = validFullBlock(history, state.asInstanceOf[WrappedUtxoState])
+
+  def totallyValidModifiers(history: H, state: UTXO_ST, count: Int): Seq[PM] = {
+    def loop(parentOpt: Option[Header], utxoState: WrappedUtxoState, acc: Seq[PM]): Seq[PM] = {
+      if (acc.lengthCompare(count) < 0) {
+        val nextBlock = validFullBlock(parentOpt, utxoState, utxoState.versionedBoxHolder)
+        loop(Some(nextBlock.header), utxoState, nextBlock +: acc)
+      } else {
+        acc
+      }
+    }
+
+    loop(history.bestFullBlockOpt.map(_.header), state.asInstanceOf[WrappedUtxoState], Seq())
+  }
+
+  protected def makeSyntacticallyInvalid(mod: ErgoPersistentModifier): ErgoPersistentModifier = mod match {
+    case fb: ErgoFullBlock =>
+      fb.copy(header = fb.header.copy(ADProofsRoot = Blake2b256(fb.header.ADProofsRoot)))
+    case m => throw new Error(s"Expected to never be here: $m")
   }
 }

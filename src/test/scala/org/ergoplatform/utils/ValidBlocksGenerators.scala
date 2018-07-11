@@ -10,6 +10,7 @@ import org.ergoplatform.modifiers.ErgoFullBlock
 import org.ergoplatform.modifiers.history.Header
 import org.ergoplatform.modifiers.mempool.ErgoTransaction
 import org.ergoplatform.nodeView.WrappedUtxoState
+import org.ergoplatform.nodeView.history.ErgoHistory
 import org.ergoplatform.nodeView.state._
 import org.ergoplatform.settings.{Algos, Constants, ErgoSettings}
 import org.scalatest.Matchers
@@ -117,6 +118,9 @@ trait ValidBlocksGenerators
 
     validTransactionsFromBoxes(num, boxes, Seq.empty, Seq.empty, rnd)._1
   }
+
+  def validFullBlock(history:ErgoHistory, state: WrappedUtxoState): ErgoFullBlock =
+    validFullBlock(history.bestFullBlockOpt.map(_.header), state, state.versionedBoxHolder)
 
   def validFullBlock(parentOpt: Option[Header], utxoState: UtxoState, boxHolder: BoxHolder): ErgoFullBlock =
     validFullBlock(parentOpt: Option[Header], utxoState: UtxoState, boxHolder: BoxHolder, new Random)

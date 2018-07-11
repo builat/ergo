@@ -1,17 +1,17 @@
 package org.ergoplatform
 
-import org.ergoplatform.ErgoSanity.{HT, PM, UTXO_ST}
-import org.ergoplatform.nodeView.WrappedUtxoState
-import org.ergoplatform.nodeView.state.StateType
-import org.scalacheck.Gen
+import org.ergoplatform.ErgoSanity.{PM, UTXO_ST}
+import org.ergoplatform.modifiers.mempool.ErgoTransaction
+import org.ergoplatform.nodeView.history.{ErgoHistory, ErgoSyncInfo}
+import org.ergoplatform.nodeView.mempool.ErgoMemPool
+import org.ergoplatform.utils.ErgoNodeViewHolderTestHelpers
+import scorex.testkit.properties.NodeViewHolderTests
 
-class ErgoSanityUTXO extends ErgoSanity[UTXO_ST] {
-
-  override val historyGen: Gen[HT] = generateHistory(verifyTransactions = true, StateType.Utxo, PoPoWBootstrap = false, -1)
-
-  override val stateGen: Gen[WrappedUtxoState] = boxesHolderGen.map(WrappedUtxoState(_, createTempDir, emission, None))
-
-  override def semanticallyValidModifier(state: UTXO_ST): PM = validFullBlock(None, state.asInstanceOf[WrappedUtxoState])
+class ErgoSanityUTXO
+  extends NodeViewHolderTests[ErgoTransaction, PM, UTXO_ST, ErgoSyncInfo, ErgoHistory, ErgoMemPool]
+    with ErgoSanity[UTXO_ST]
+    with ErgoNodeViewHolderTestHelpers {
 
   override def semanticallyInvalidModifier(state: UTXO_ST): PM = invalidErgoFullBlockGen.sample.get
+
 }
